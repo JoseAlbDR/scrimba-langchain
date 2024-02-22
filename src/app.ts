@@ -71,25 +71,37 @@ async function document() {
 
     // console.log({ vectorStore });¨
 
+    // const tweetTemplate =
+    //   'Generate a promotional tweet for a product, from this product description: {productDesc}';
+
+    // const tweetPrompt = PromptTemplate.fromTemplate(tweetTemplate);
+
+    // // console.log(tweetPrompt);
+
+    // const tweetChain = tweetPrompt.pipe(llm);
+
+    // // console.log(tweetChain);
+
+    // const response = await tweetChain.invoke({ productDesc: 'Electric shoes' });
+
+    // console.log(response.content);
     const llm = new ChatOpenAI({
       openAIApiKey: process.env.OPENAI_API_KEY,
       // temperature: 0.5,
     });
 
-    const tweetTemplate =
-      'Generate a promotional tweet for a product, from this product description: {productDesc}';
+    const template = 'Generate an standalone question from this {userQuestion}';
 
-    const tweetPrompt = PromptTemplate.fromTemplate(tweetTemplate);
+    const prompt = PromptTemplate.fromTemplate(template);
 
-    // console.log(tweetPrompt);
+    const chain = prompt.pipe(llm);
 
-    const tweetChain = tweetPrompt.pipe(llm);
+    const response = await chain.invoke({
+      userQuestion:
+        'I want to know your return policy becaouse I am a very indecisive person and I dont want to pay for an article that I will not be able to use anymore or I will not be able to return',
+    });
 
-    // console.log(tweetChain);
-
-    const response = await tweetChain.invoke({ productDesc: 'Electric shoes' });
-
-    console.log(response.content);
+    console.log({ response: response.content });
   } catch (error) {
     console.log(error);
   }
