@@ -1,7 +1,7 @@
 import { PrismaVectorStore } from '@langchain/community/vectorstores/prisma';
 import { prisma } from './data/prisma';
-import { Document, Prisma, Project } from '@prisma/client';
-import { ChatOpenAI, OpenAIChat, OpenAIEmbeddings } from '@langchain/openai';
+import { Prisma, Project } from '@prisma/client';
+import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
 import 'dotenv/config';
 import * as path from 'path';
 import * as fs from 'fs/promises';
@@ -9,10 +9,18 @@ import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { PromptTemplate } from '@langchain/core/prompts';
 // import { StringOutputParser } from 'langchain/schema/output_parser';
 import { StringOutputParser } from '@langchain/core/output_parsers';
+import { retriever } from './utils/retriever';
+import { Document } from 'langchain/document';
+import { combineDocuments } from './utils/combineDocuments';
+import {
+  RunnableSequence,
+  RunnablePassthrough,
+} from '@langchain/core/runnables';
 
 (async () => {
-  await document();
+  // await document();
   // await main();
+  await RunSeq();
 })();
 
 async function document() {
@@ -60,6 +68,22 @@ async function document() {
 
     // console.log({ vectorStore });¨
 
+    //* Embeddings
+    // const embeddings = new OpenAIEmbeddings({
+    //   openAIApiKey: process.env.OPENAI_API_KEY,
+    // });
+
+    // //* Vector store for user question embeddings
+    // const vectorStore = new PrismaVectorStore(embeddings, {
+    //   db: prisma,
+    //   prisma: Prisma,
+    //   tableName: 'Document',
+    //   vectorColumnName: 'vector',
+    //   columns: {
+    //     id: PrismaVectorStore.IdColumn,
+    //     content: PrismaVectorStore.ContentColumn,
+    //   },
+    // });
     //* Convert an user question in a standalone question
     //* Model
     const llm = new ChatOpenAI({
@@ -68,27 +92,11 @@ async function document() {
       maxTokens: 500,
     });
 
-    //* Embeddings
-    const embeddings = new OpenAIEmbeddings({
-      openAIApiKey: process.env.OPENAI_API_KEY,
-    });
-
-    //* Vector store for user question embeddings
-    const vectorStore = new PrismaVectorStore(embeddings, {
-      db: prisma,
-      prisma: Prisma,
-      tableName: 'Document',
-      vectorColumnName: 'vector',
-      columns: {
-        id: PrismaVectorStore.IdColumn,
-        content: PrismaVectorStore.ContentColumn,
-      },
-    });
-
-    //* Retriever
-    const retriever = vectorStore.asRetriever();
-    const template =
-      'Given a question, convert it to a standalone question. question: {question} standalone question:';
+    //* Retriever (refactor to utils/retriever.ts)
+    // const retriever = vectorStore.asRetriever();
+    const template = `Given a question, convert it to a standalone question. 
+      question: {question} 
+      standalone question:`;
 
     //* Prompt for template
     const prompt = PromptTemplate.fromTemplate(template);
@@ -96,16 +104,39 @@ async function document() {
     //* Output Parser
     const stringParser = new StringOutputParser();
 
-    //* Chain llm model to string to retriever (user question)
-    const chain = prompt.pipe(llm).pipe(stringParser).pipe(retriever);
+    const question =
+      'What are the technical requirements for running Scrimba? I only have a very old laptop which is not that powerful';
 
     //* Invoke chain
-    const response = await chain.invoke({
-      question:
-        'What are the technical requirements for running Scrimba? I only have a very old laptop which is not that powerful',
+    // const response = await chain.invoke({
+    //   question,
+    // });
+
+    // console.log({ response });
+
+    //* 1) Create the template
+    const answerTemplate = `You are a helpful and enthusiastic support bot who can answer a given question about Scrimba based on the context provided. Try to find the answer in the context. If you really dont know the answer, say "Im sorry, I dont know the answer to that." And direct the questioner to email help@scrimba.com. Dont try to make up an answer. Always speak as if you were chatting to a friend.
+      context: {context}
+      question: {question}
+      answer:`;
+
+    //* 2) Create the prompt
+    const answerPrompt = PromptTemplate.fromTemplate(answerTemplate);
+
+    //* 3) Create/Add to the chain with pipes
+    const chain = prompt
+      .pipe(llm) // Pass prompt to Model, returns an object
+      .pipe(stringParser) // Convert that object in a string
+      .pipe(retriever) // Find matchs in vector store from retriever, returns an object
+      .pipe(combineDocuments); // Util function to extract only pageContent string
+    // .pipe(answerPrompt);
+
+    //* 4) Invoke the chain with needed arguments
+    const answerResponse = await chain.invoke({
+      question,
     });
 
-    console.log({ response });
+    console.log({ answerResponse });
 
     // // //* As Documentation (Simpliest but without pipe chain)
     // // //* Generate standalone question from user question
@@ -127,6 +158,53 @@ async function document() {
   } catch (error) {
     console.log(error);
   }
+}
+
+async function RunSeq() {
+  const llm = new ChatOpenAI();
+  const stringParser = new StringOutputParser();
+  const passThrough = new RunnablePassthrough();
+
+  //* Templates
+  const punctuationTemplate = `Given a sentence, add punctuation where needed.
+  sentence: {sentence}
+  sentence with punctuation:`;
+  const grammarTemplate = `Given a sentence correct the grammar.
+  sentence: {punctuated_sentence}
+  sentence with correct grammar:`;
+  const translationTemplate = `Given a sentence, translate that sentence into {language}
+  sentence: {grammatically_correct_sentence}
+  translated sentence:`;
+
+  //* Prompts
+  const punctuationPrompt = PromptTemplate.fromTemplate(punctuationTemplate);
+  const grammarPrompt = PromptTemplate.fromTemplate(grammarTemplate);
+  const translationPrompt = PromptTemplate.fromTemplate(translationTemplate);
+
+  //* Chains
+  const punctuationChain = punctuationPrompt.pipe(llm).pipe(stringParser);
+  const grammarChain = grammarPrompt.pipe(llm).pipe(stringParser);
+  const translationChain = translationPrompt.pipe(llm).pipe(stringParser);
+
+  //* Runnable Sequence
+  const chain = RunnableSequence.from([
+    {
+      punctuated_sentence: punctuationChain,
+      original_input: passThrough, // passThrough => {sentence, language}
+    },
+    {
+      grammatically_correct_sentence: grammarChain,
+      language: ({ original_input }) => original_input.language,
+    },
+    translationChain,
+  ]);
+
+  const response = await chain.invoke({
+    sentence: 'i dont liked mondays',
+    language: 'spanish',
+  });
+
+  console.log(response);
 }
 async function main() {
   const vectorStore = PrismaVectorStore.withModel<Project>(prisma).create(
