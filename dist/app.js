@@ -12,9 +12,9 @@ const retriever_1 = require("./utils/retriever");
 const combineDocuments_1 = require("./utils/combineDocuments");
 const runnables_1 = require("@langchain/core/runnables");
 (async () => {
-    // await document();
+    await document();
     // await main();
-    await RunSeq();
+    // await RunSeq();
 })();
 async function document() {
     try {
@@ -76,16 +76,19 @@ async function document() {
             temperature: 0.5,
             maxTokens: 500,
         });
+        const passThrough = new runnables_1.RunnablePassthrough();
         //* Retriever (refactor to utils/retriever.ts)
         // const retriever = vectorStore.asRetriever();
-        const template = `Given a question, convert it to a standalone question. 
+        const standAloneTemplate = `Given a question, convert it to a standalone question. 
       question: {question} 
       standalone question:`;
         //* Prompt for template
-        const prompt = prompts_1.PromptTemplate.fromTemplate(template);
+        const standAlonePrompt = prompts_1.PromptTemplate.fromTemplate(standAloneTemplate);
         //* Output Parser
         const stringParser = new output_parsers_1.StringOutputParser();
-        const question = 'What are the technical requirements for running Scrimba? I only have a very old laptop which is not that powerful';
+        const question = 
+        // 'What are the technical requirements for running Scrimba? I only have a very old laptop which is not that powerful';
+        `Im a 40 year old man that is new to web development, just trying to take some curses and improve my skills while I learn more technologies and apply them to my projects, I don't know if Scrimba will help me to find job, do it give any kind of certifications that will help to find job and what are their cost?`;
         //* Invoke chain
         // const response = await chain.invoke({
         //   question,
@@ -98,33 +101,29 @@ async function document() {
       answer:`;
         //* 2) Create the prompt
         const answerPrompt = prompts_1.PromptTemplate.fromTemplate(answerTemplate);
-        //* 3) Create/Add to the chain with pipes
-        const chain = prompt
+        const promptChain = standAlonePrompt
             .pipe(llm) // Pass prompt to Model, returns an object
             .pipe(stringParser) // Convert that object in a string
             .pipe(retriever_1.retriever) // Find matchs in vector store from retriever, returns an object
-            .pipe(combineDocuments_1.combineDocuments); // Util function to extract only pageContent string
-        // .pipe(answerPrompt);
+            .pipe(combineDocuments_1.combineDocuments); // Return possible matches
+        const answerChain = answerPrompt.pipe(llm).pipe(stringParser);
+        //* 3) Create/Add to the chain with pipes
+        const chain = runnables_1.RunnableSequence.from([
+            {
+                context: promptChain,
+                question: (passThrough) => passThrough.question,
+            },
+            answerChain,
+        ]);
+        const promptResponse = await promptChain.invoke({
+            question,
+        });
+        console.log({ promptResponse });
         //* 4) Invoke the chain with needed arguments
         const answerResponse = await chain.invoke({
             question,
         });
         console.log({ answerResponse });
-        // // //* As Documentation (Simpliest but without pipe chain)
-        // // //* Generate standalone question from user question
-        // const userQuestionTemplate =
-        //   'Generate an standalone question from this {userQuestion}';
-        // const userQuestionPrompt = PromptTemplate.fromTemplate(template);
-        // const userQuestionChain = prompt.pipe(llm);
-        // const response = await userQuestionChain.invoke({
-        //   userQuestion:
-        //     'What are the technical requirements for running Scrimba? I only have a very old laptop which is not that powerful',
-        // });
-        // //* Search for similarities in vectorStore
-        // const result = await vectorStore.similaritySearch(
-        //   response.content.toString()
-        // );
-        // console.log({ result });
     }
     catch (error) {
         console.log(error);
@@ -156,7 +155,7 @@ async function RunSeq() {
     const chain = runnables_1.RunnableSequence.from([
         {
             punctuated_sentence: punctuationChain,
-            original_input: passThrough,
+            original_input: passThrough, // passThrough => {sentence, language}
         },
         {
             grammatically_correct_sentence: grammarChain,
