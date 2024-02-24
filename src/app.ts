@@ -92,30 +92,19 @@ async function document() {
       maxTokens: 500,
     });
 
-    const passThrough = new RunnablePassthrough();
-
-    //* Retriever (refactor to utils/retriever.ts)
-    // const retriever = vectorStore.asRetriever();
+    //* Template for stand alone question
     const standAloneTemplate = `Given a question, convert it to a standalone question. 
       question: {question} 
       standalone question:`;
 
-    //* Prompt for template
+    //* Prompt for stand alone question template
     const standAlonePrompt = PromptTemplate.fromTemplate(standAloneTemplate);
 
-    //* Output Parser
+    //* Output Parser to return a string instead of an object
     const stringParser = new StringOutputParser();
 
-    const question =
-      // 'What are the technical requirements for running Scrimba? I only have a very old laptop which is not that powerful';
-      `Im a 40 year old man that is new to web development, just trying to take some curses and improve my skills while I learn more technologies and apply them to my projects, I don't know if Scrimba will help me to find job, do it give any kind of certifications that will help to find job and what are their cost?`;
-
-    //* Invoke chain
-    // const response = await chain.invoke({
-    //   question,
-    // });
-
-    // console.log({ response });
+    //* Final question
+    const question = `Im a 40 year old man that is new to web development, just trying to take some curses and improve my skills while I learn more technologies and apply them to my projects but i don't know if I'm too old to learn from Scrimba and I don't know if Scrimba will help me to find job, do it give any kind of certifications that will help to find job and what are their cost?`;
 
     //* 1) Create the template
     const answerTemplate = `You are a helpful and enthusiastic support bot who can answer a given question about Scrimba based on the context provided. Try to find the answer in the context. If you really dont know the answer, say "Im sorry, I dont know the answer to that." And direct the questioner to email help@scrimba.com. Dont try to make up an answer. Always speak as if you were chatting to a friend.
@@ -128,9 +117,9 @@ async function document() {
 
     const promptChain = standAlonePrompt
       .pipe(llm) // Pass prompt to Model, returns an object
-      .pipe(stringParser) // Convert that object in a string
-      .pipe(retriever) // Find matchs in vector store from retriever, returns an object
-      .pipe(combineDocuments); // Return possible matches
+      .pipe(stringParser) // Convert that object in a string (the stand alone question)
+      .pipe(retriever) // Find machs in vector store from retriever, returns an object
+      .pipe(combineDocuments); // Return possible matches but in a string format
 
     const answerChain = answerPrompt.pipe(llm).pipe(stringParser);
 
@@ -138,16 +127,10 @@ async function document() {
     const chain = RunnableSequence.from([
       {
         context: promptChain,
-        question: (passThrough) => passThrough.question,
+        question: (params) => params.question,
       },
       answerChain,
     ]);
-
-    const promptResponse = await promptChain.invoke({
-      question,
-    });
-
-    console.log({ promptResponse });
 
     //* 4) Invoke the chain with needed arguments
     const answerResponse = await chain.invoke({
