@@ -1,0 +1,72 @@
+
+Adopta un peludo
+Bootcamp XV
+Keepcoding web Fullstack bootcamp
+
+
+adoptaunpeludo.es
+28 de enero de 2024
+Descripción General:
+Nuestra idea es crear un punto de encuentro donde protectoras y asociaciones puedan mostrar los animales que han rescatado de la calle para los que buscan una familia y las personas interesadas en adoptar o acoger una mascota puedan conocer sus características y ponerse en contacto con las protectoras. 
+Integrantes:
+Jose Alberto, Paco, Juanma, Pol
+Características Principales:
+Zonas Públicas:
+Acceso abierto para todos los visitantes sin necesidad de registro.
+Contenido público, como información general, noticias y recursos accesibles para cualquier usuario.
+Listado con anuncios de animales: 
+ Datos mínimos: nombre, foto,  descripción, en adopción o acogida, protectora que ha creado el anuncio. 
+Listado paginado con un límite máximo de anuncios por pantalla que el usuario podrá avanzar. 
+Este listado tiene dos zonas, uno limitado a x anuncios dentro de una sección de destacados en la home del site. tendremos en la home una sección por especie de animales recogidos en la bd. en principios perros y gatos pero ampliable en un futuro a otras especies. 
+La segunda zona es la página específica de la especie consultada en ella tendremos todos los anuncios creados para la especie consultada mostrados de forma paginada. 
+En esta zona específica con el listado de anuncios contará con un buscador de anuncios y distintos filtros por ejemplo: 
+rango de edad del animal. 
+tamaño
+sexo
+lugar de adopción
+Todos los listados podrán ser ordenados por antigüedad, por defecto se mostrarán de más antiguo a más reciente para dar visibilidad a aquellos animales que llevan más tiempo pendientes de adopción. 
+Consulta de detalle de un anuncio. 
+Desde cualquier listado de anuncios se podrá cargar una vista de detalle con información ampliada del animal. 
+Se podrá compartir en RRSS esta vista detallada para dar visibilidad al anuncio. 
+Anuncios de una protectora. 
+Tanto en el listado general como en la vista de detalle del anuncio desde el identificador de la protectora podemos acceder a consultar un listado de todos los anuncios que tienen creados para ver todos los animales que dicha protectora tiene disponibles en la plataforma, es decir todos aquellos que no hayan sido adoptados aun. 
+Registro / Login de usuario. 
+Para acceder al área privada  tanto usuarios adoptantes como protectoras deberán de crear un usuario.  Se establecerá un sistema de recuperación de contraseñas de usuarios a través de verificación de email. 
+
+Zonas Privadas:
+usuarios y roles
+Dentro de esta zona privada debemos distinguir dos roles de usuario diferenciados, por un lado tenemos a adoptante y por otro lado tenemos a las protectoras, hay acciones comunes para ambos y acciones específicas para cada rol. 
+Acciones comunes
+Actualización de datos, los usuarios pueden acceder al perfil específico del usuario para poder actualizar sus datos personales. 
+Realizar logout / dar de baja al usuario, el usuario autenticado puede desloguear su sesión o borrar su perfil junto a toda la información asociada a él. 
+Acciones específicas del rol protectora 
+Crear anuncios con un animal para adoptar, con una información mínima obligatoria se podrá dar de alta un animal para adopción /  acogida. 
+Ver listado con todos los animales publicados activos. un usuario protectora podrá ver un listado con todos sus anuncios y acceder al detalle de ellos, desde dicho detalle podrá realizar acciones complementarias. 
+Editar anuncios, una protectora podrá editar sus anuncios para añadir más información o modificar aquellos datos que estime oportuno. 
+Borrar un anuncio, una protectora podrá borrar de la plataforma si el animal ha sido adaptado de forma offline por ejemplo o por otros motivos. 
+Marcar / desmarcar animal como preadoptado, como protectora podrá identificar aquellos anuncios de animales que se encuentren en proceso de adopción para que posibles adoptantes sean conscientes de esta situación.  
+Una protectora desde su zona privada puede responder vía chat a los usuarios registrados que se comuniquen con ella desde la página de detalle de un anuncio o desde la página donde se listan todos los anuncios pertenecientes a dicha protectora. 
+Recibir una notificación de mensajes de chat sin leer
+
+Acciones específicas del rol adoptante 
+Marcar un anuncio como favorito.
+Ver listado de anuncios marcados como favoritos.
+Desmarcar un anuncio como favorito.
+Chatear con una protectora bien a través de detalle de un anuncio o dentro de la página específica de la protectora. 
+Recibir un aviso online o por mail cuando un animal marcado como favorito cambie a adoptado. 
+Recibir un aviso online o por mail cuando un animal marcado como favorito cambie a preadoptado. 
+Recibir un aviso online o por mail cuando un animal marcado como favorito cambie de edad ejemplo de cachorro a adulto. 
+Recibir una notificación de mensajes de chat sin leer. 
+Recibir un email de animales con que compartan características con los que he marcado como favoritos.  
+
+Requisitos Técnicos:
+Tecnología:
+Para el Backend usaremos node con Nest/Express y conexión a una Base de datos MongoDB
+Para el frontend usaremos react con styled components, react-router-dom, react query.
+
+
+
+
+
+
+

@@ -1,16 +1,14 @@
 import { PrismaVectorStore } from '@langchain/community/vectorstores/prisma';
 import { prisma } from './data/prisma';
-import { Prisma, Project } from '@prisma/client';
+import { Documents, Prisma, Project } from '@prisma/client';
 import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
 import 'dotenv/config';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { PromptTemplate } from '@langchain/core/prompts';
-// import { StringOutputParser } from 'langchain/schema/output_parser';
 import { StringOutputParser } from '@langchain/core/output_parsers';
 import { retriever } from './utils/retriever';
-import { Document } from 'langchain/document';
 import { combineDocuments } from './utils/combineDocuments';
 import {
   RunnableSequence,
@@ -18,72 +16,60 @@ import {
 } from '@langchain/core/runnables';
 
 (async () => {
-  await document();
+  await chatBot();
+
   // await main();
   // await RunSeq();
 })();
 
-async function document() {
+async function chatBot() {
   try {
-    //* Read File and Split
-    // const filePath = path.resolve(__dirname, 'scrimba.txt');
-    // const text = await fs.readFile(filePath, 'utf-8');
-
-    // const splitter = new RecursiveCharacterTextSplitter({
-    //   chunkSize: 500,
-    //   chunkOverlap: 50,
+    // document.addEventListener('submit', (e) => {
+    //   e.preventDefault();
+    //   progressConversation();
     // });
 
-    // const output = await splitter.createDocuments([text]);
+    //* Read File and Split
+    const filePath = path.resolve(__dirname, 'adoptaunpeludo.txt');
+    const text = await fs.readFile(filePath, 'utf-8');
 
-    // console.log({ output });
+    const splitter = new RecursiveCharacterTextSplitter({
+      chunkSize: 500,
+      chunkOverlap: 50,
+    });
+
+    const output = await splitter.createDocuments([text]);
+
+    console.log({ output });
 
     //* Store output in a prisma vector store
-    // const vectorStore = PrismaVectorStore.withModel<Document>(prisma).create(
-    //   new OpenAIEmbeddings({
-    //     openAIApiKey: process.env.OPENAI_API_KEY,
-    //   }),
-    //   {
-    //     prisma: Prisma,
-    //     tableName: 'Document',
-    //     vectorColumnName: 'vector',
-    //     columns: {
-    //       id: PrismaVectorStore.IdColumn,
-    //       content: PrismaVectorStore.ContentColumn,
-    //     },
-    //   }
-    // );
+    const vectorStore = PrismaVectorStore.withModel<Documents>(prisma).create(
+      new OpenAIEmbeddings({
+        openAIApiKey: process.env.OPENAI_API_KEY,
+      }),
+      {
+        prisma: Prisma,
+        tableName: 'Documents',
+        vectorColumnName: 'vector',
+        columns: {
+          id: PrismaVectorStore.IdColumn,
+          content: PrismaVectorStore.ContentColumn,
+        },
+      }
+    );
 
-    // await vectorStore.addModels(
-    //   await prisma.$transaction(
-    //     output.map((chunk) =>
-    //       prisma.document.create({
-    //         data: {
-    //           content: chunk.pageContent,
-    //         },
-    //       })
-    //     )
-    //   )
-    // );
+    await vectorStore.addModels(
+      await prisma.$transaction(
+        output.map((chunk) =>
+          prisma.documents.create({
+            data: {
+              content: chunk.pageContent,
+            },
+          })
+        )
+      )
+    );
 
-    // console.log({ vectorStore });¨
-
-    //* Embeddings
-    // const embeddings = new OpenAIEmbeddings({
-    //   openAIApiKey: process.env.OPENAI_API_KEY,
-    // });
-
-    // //* Vector store for user question embeddings
-    // const vectorStore = new PrismaVectorStore(embeddings, {
-    //   db: prisma,
-    //   prisma: Prisma,
-    //   tableName: 'Document',
-    //   vectorColumnName: 'vector',
-    //   columns: {
-    //     id: PrismaVectorStore.IdColumn,
-    //     content: PrismaVectorStore.ContentColumn,
-    //   },
-    // });
     //* Convert an user question in a standalone question
     //* Model
     const llm = new ChatOpenAI({
@@ -91,6 +77,7 @@ async function document() {
       temperature: 0.5,
       maxTokens: 500,
     });
+    const passThrough = new RunnablePassthrough();
 
     //* Template for stand alone question
     const standAloneTemplate = `Given a question, convert it to a standalone question. 
@@ -104,10 +91,12 @@ async function document() {
     const stringParser = new StringOutputParser();
 
     //* Final question
-    const question = `Im a 40 year old man that is new to web development, just trying to take some curses and improve my skills while I learn more technologies and apply them to my projects but i don't know if I'm too old to learn from Scrimba and I don't know if Scrimba will help me to find job, do it give any kind of certifications that will help to find job and what are their cost?`;
+    const question = `Hola, soy un refugio que no tiene página web propia y acabo de conocer esta plataforma pero no estoy muy seguro de como utilizarla, me podrías explicar los pasos que tengo que seguir para poner los animales que tengo en el refugio en adopcion? Gracias`;
+
+    console.log({ question });
 
     //* 1) Create the template
-    const answerTemplate = `You are a helpful and enthusiastic support bot who can answer a given question about Scrimba based on the context provided. Try to find the answer in the context. If you really dont know the answer, say "Im sorry, I dont know the answer to that." And direct the questioner to email help@scrimba.com. Dont try to make up an answer. Always speak as if you were chatting to a friend.
+    const answerTemplate = `You are a helpful and enthusiastic support bot who can answer a given question about Adoptaunpeludo based on the context provided. Try to find the answer in the context. If you really don't know the answer, say "I'm sorry, I don't know the answer to that." And direct the questioner to email adoptaunpeludo@gmail.com. Don't try to make up an answer. Always speak as if you were chatting to a friend.
       context: {context}
       question: {question}
       answer:`;
@@ -115,19 +104,27 @@ async function document() {
     //* 2) Create the prompt
     const answerPrompt = PromptTemplate.fromTemplate(answerTemplate);
 
-    const promptChain = standAlonePrompt
+    const standAloneQuestionChain = standAlonePrompt
       .pipe(llm) // Pass prompt to Model, returns an object
-      .pipe(stringParser) // Convert that object in a string (the stand alone question)
-      .pipe(retriever) // Find machs in vector store from retriever, returns an object
-      .pipe(combineDocuments); // Return possible matches but in a string format
+      .pipe(stringParser); // Convert that object in a string (the stand alone question)
+
+    const retrieverChain = RunnableSequence.from([
+      (prevResult) => prevResult.standaloneQuestion, // Prev result from RunnableSequece/Chain
+      retriever, // Pass to retriever
+      combineDocuments, // Convert all results to an string
+    ]);
 
     const answerChain = answerPrompt.pipe(llm).pipe(stringParser);
 
     //* 3) Create/Add to the chain with pipes
     const chain = RunnableSequence.from([
       {
-        context: promptChain,
-        question: (params) => params.question,
+        standaloneQuestion: standAloneQuestionChain,
+        originalQuestion: passThrough,
+      },
+      {
+        context: retrieverChain,
+        question: ({ originalQuestion }) => originalQuestion.question,
       },
       answerChain,
     ]);
@@ -137,7 +134,37 @@ async function document() {
       question,
     });
 
-    console.log({ answerResponse });
+    console.log({ answer: answerResponse });
+
+    async function progressConversation() {
+      const userInput = document.getElementById(
+        'user-input'
+      ) as HTMLInputElement;
+      const chatbotConversation = document.getElementById(
+        'chatbot-conversation-container'
+      );
+
+      if (!userInput) return;
+      const question = userInput.value;
+      userInput.value = '';
+
+      // add human message
+      const newHumanSpeechBubble = document.createElement('div');
+      newHumanSpeechBubble.classList.add('speech', 'speech-human');
+
+      if (!chatbotConversation) return;
+
+      chatbotConversation.appendChild(newHumanSpeechBubble);
+      newHumanSpeechBubble.textContent = question;
+      chatbotConversation.scrollTop = chatbotConversation.scrollHeight;
+
+      // add AI message
+      const newAiSpeechBubble = document.createElement('div');
+      newAiSpeechBubble.classList.add('speech', 'speech-ai');
+      chatbotConversation.appendChild(newAiSpeechBubble);
+      newAiSpeechBubble.textContent = answerResponse;
+      chatbotConversation.scrollTop = chatbotConversation.scrollHeight;
+    }
   } catch (error) {
     console.log(error);
   }

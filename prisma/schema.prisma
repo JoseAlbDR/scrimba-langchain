@@ -21,7 +21,7 @@ model Project {
   vector      Unsupported("vector")?
 }
 
-model Document {
+model Documents {
   id      String                 @id @default(cuid())
   content String
   vector  Unsupported("vector")?

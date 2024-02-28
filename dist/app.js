@@ -6,20 +6,23 @@ const client_1 = require("@prisma/client");
 const openai_1 = require("@langchain/openai");
 require("dotenv/config");
 const prompts_1 = require("@langchain/core/prompts");
-// import { StringOutputParser } from 'langchain/schema/output_parser';
 const output_parsers_1 = require("@langchain/core/output_parsers");
 const retriever_1 = require("./utils/retriever");
 const combineDocuments_1 = require("./utils/combineDocuments");
 const runnables_1 = require("@langchain/core/runnables");
 (async () => {
-    await document();
+    await chatBot();
     // await main();
     // await RunSeq();
 })();
-async function document() {
+async function chatBot() {
     try {
+        document.addEventListener('submit', (e) => {
+            e.preventDefault();
+            progressConversation();
+        });
         //* Read File and Split
-        // const filePath = path.resolve(__dirname, 'scrimba.txt');
+        // const filePath = path.resolve(__dirname, 'adoptaunpeludo.txt');
         // const text = await fs.readFile(filePath, 'utf-8');
         // const splitter = new RecursiveCharacterTextSplitter({
         //   chunkSize: 500,
@@ -27,14 +30,14 @@ async function document() {
         // });
         // const output = await splitter.createDocuments([text]);
         // console.log({ output });
-        //* Store output in a prisma vector store
-        // const vectorStore = PrismaVectorStore.withModel<Document>(prisma).create(
+        // //* Store output in a prisma vector store
+        // const vectorStore = PrismaVectorStore.withModel<Documents>(prisma).create(
         //   new OpenAIEmbeddings({
         //     openAIApiKey: process.env.OPENAI_API_KEY,
         //   }),
         //   {
         //     prisma: Prisma,
-        //     tableName: 'Document',
+        //     tableName: 'Documents',
         //     vectorColumnName: 'vector',
         //     columns: {
         //       id: PrismaVectorStore.IdColumn,
@@ -45,7 +48,7 @@ async function document() {
         // await vectorStore.addModels(
         //   await prisma.$transaction(
         //     output.map((chunk) =>
-        //       prisma.document.create({
+        //       prisma.documents.create({
         //         data: {
         //           content: chunk.pageContent,
         //         },
@@ -53,22 +56,6 @@ async function document() {
         //     )
         //   )
         // );
-        // console.log({ vectorStore });¨
-        //* Embeddings
-        // const embeddings = new OpenAIEmbeddings({
-        //   openAIApiKey: process.env.OPENAI_API_KEY,
-        // });
-        // //* Vector store for user question embeddings
-        // const vectorStore = new PrismaVectorStore(embeddings, {
-        //   db: prisma,
-        //   prisma: Prisma,
-        //   tableName: 'Document',
-        //   vectorColumnName: 'vector',
-        //   columns: {
-        //     id: PrismaVectorStore.IdColumn,
-        //     content: PrismaVectorStore.ContentColumn,
-        //   },
-        // });
         //* Convert an user question in a standalone question
         //* Model
         const llm = new openai_1.ChatOpenAI({
@@ -77,53 +64,72 @@ async function document() {
             maxTokens: 500,
         });
         const passThrough = new runnables_1.RunnablePassthrough();
-        //* Retriever (refactor to utils/retriever.ts)
-        // const retriever = vectorStore.asRetriever();
+        //* Template for stand alone question
         const standAloneTemplate = `Given a question, convert it to a standalone question. 
       question: {question} 
       standalone question:`;
-        //* Prompt for template
+        //* Prompt for stand alone question template
         const standAlonePrompt = prompts_1.PromptTemplate.fromTemplate(standAloneTemplate);
-        //* Output Parser
+        //* Output Parser to return a string instead of an object
         const stringParser = new output_parsers_1.StringOutputParser();
-        const question = 
-        // 'What are the technical requirements for running Scrimba? I only have a very old laptop which is not that powerful';
-        `Im a 40 year old man that is new to web development, just trying to take some curses and improve my skills while I learn more technologies and apply them to my projects, I don't know if Scrimba will help me to find job, do it give any kind of certifications that will help to find job and what are their cost?`;
-        //* Invoke chain
-        // const response = await chain.invoke({
-        //   question,
-        // });
-        // console.log({ response });
+        //* Final question
+        const question = `Hola, soy un refugio que no tiene página web propia y acabo de conocer esta plataforma pero no estoy muy seguro de como utilizarla, me podrías explicar los pasos que tengo que seguir para poner los animales que tengo en el refugio en adopcion? Gracias`;
+        console.log({ question });
         //* 1) Create the template
-        const answerTemplate = `You are a helpful and enthusiastic support bot who can answer a given question about Scrimba based on the context provided. Try to find the answer in the context. If you really dont know the answer, say "Im sorry, I dont know the answer to that." And direct the questioner to email help@scrimba.com. Dont try to make up an answer. Always speak as if you were chatting to a friend.
+        const answerTemplate = `You are a helpful and enthusiastic support bot who can answer a given question about Adoptaunpeludo based on the context provided. Try to find the answer in the context. If you really don't know the answer, say "I'm sorry, I don't know the answer to that." And direct the questioner to email adoptaunpeludo@gmail.com. Don't try to make up an answer. Always speak as if you were chatting to a friend.
       context: {context}
       question: {question}
       answer:`;
         //* 2) Create the prompt
         const answerPrompt = prompts_1.PromptTemplate.fromTemplate(answerTemplate);
-        const promptChain = standAlonePrompt
+        const standAloneQuestionChain = standAlonePrompt
             .pipe(llm) // Pass prompt to Model, returns an object
-            .pipe(stringParser) // Convert that object in a string
-            .pipe(retriever_1.retriever) // Find matchs in vector store from retriever, returns an object
-            .pipe(combineDocuments_1.combineDocuments); // Return possible matches
+            .pipe(stringParser); // Convert that object in a string (the stand alone question)
+        const retrieverChain = runnables_1.RunnableSequence.from([
+            (prevResult) => prevResult.standaloneQuestion, // Prev result from RunnableSequece/Chain
+            retriever_1.retriever, // Pass to retriever
+            combineDocuments_1.combineDocuments, // Convert all results to an string
+        ]);
         const answerChain = answerPrompt.pipe(llm).pipe(stringParser);
         //* 3) Create/Add to the chain with pipes
         const chain = runnables_1.RunnableSequence.from([
             {
-                context: promptChain,
-                question: (passThrough) => passThrough.question,
+                standaloneQuestion: standAloneQuestionChain,
+                originalQuestion: passThrough,
+            },
+            {
+                context: retrieverChain,
+                question: ({ originalQuestion }) => originalQuestion.question,
             },
             answerChain,
         ]);
-        const promptResponse = await promptChain.invoke({
-            question,
-        });
-        console.log({ promptResponse });
         //* 4) Invoke the chain with needed arguments
         const answerResponse = await chain.invoke({
             question,
         });
-        console.log({ answerResponse });
+        console.log({ answer: answerResponse });
+        async function progressConversation() {
+            const userInput = document.getElementById('user-input');
+            const chatbotConversation = document.getElementById('chatbot-conversation-container');
+            if (!userInput)
+                return;
+            const question = userInput.value;
+            userInput.value = '';
+            // add human message
+            const newHumanSpeechBubble = document.createElement('div');
+            newHumanSpeechBubble.classList.add('speech', 'speech-human');
+            if (!chatbotConversation)
+                return;
+            chatbotConversation.appendChild(newHumanSpeechBubble);
+            newHumanSpeechBubble.textContent = question;
+            chatbotConversation.scrollTop = chatbotConversation.scrollHeight;
+            // add AI message
+            const newAiSpeechBubble = document.createElement('div');
+            newAiSpeechBubble.classList.add('speech', 'speech-ai');
+            chatbotConversation.appendChild(newAiSpeechBubble);
+            newAiSpeechBubble.textContent = answerResponse;
+            chatbotConversation.scrollTop = chatbotConversation.scrollHeight;
+        }
     }
     catch (error) {
         console.log(error);

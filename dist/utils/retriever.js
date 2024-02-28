@@ -34,7 +34,7 @@ const embeddings = new openai_1.OpenAIEmbeddings();
 const vectorStore = new prisma_1.PrismaVectorStore(embeddings, {
     db: prisma_2.prisma,
     prisma: client_1.Prisma,
-    tableName: 'Document',
+    tableName: 'Documents',
     vectorColumnName: 'vector',
     columns: {
         id: prisma_1.PrismaVectorStore.IdColumn,
